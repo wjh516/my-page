@@ -4,181 +4,156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>233乐园-发现</title>
+  <title>233乐园社区发现页</title>
   <style>
-    * {
+    body,
+    html {
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
+      font-family: sans-serif;
     }
 
-    .container {
-      padding: 8px;
+    #container {
       column-count: 2;
       column-gap: 8px;
+      padding: 8px;
     }
 
-    .card {
-      break-inside: avoid;
-      margin-bottom: 8px;
+    .item {
+      display: inline-block;
+      width: 100%;
+      margin: 0 0 8px;
       background: #fff;
-      border-radius: 12px;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       overflow: hidden;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .media {
+    .item img,
+    .item video {
       width: 100%;
       height: auto;
-      border-radius: 8px;
       display: block;
-    }
-
-    .video {
-      aspect-ratio: 9/16;
-      background: #000;
     }
 
     .title {
       padding: 8px;
       font-size: 14px;
-      color: #333;
-      line-height: 1.4;
     }
 
-    .loading {
+    /* loading indicator */
+    #loading {
       text-align: center;
-      padding: 15px;
-      color: #999;
+      padding: 12px;
+      font-size: 14px;
+      color: #666;
     }
   </style>
 </head>
 
 <body>
-  <div class="container" id="container"></div>
-  <div class="loading" id="loading">加载中...</div>
+  <div id="container"></div>
+  <div id="loading">加载中...</div>
 
   <script>
-    // URL参数解析
-    const urlParams = new URLSearchParams(location.search);
-    const dataType = urlParams.get('format') || 'v1';
+    let page = 1;
+    let loading = false;
+    let pulled = false;
+    let startY = 0;
 
-    let currentPage = 1;
-    let isLoading = false;
+    const container = document.getElementById('container');
+    const loadingEl = document.getElementById('loading');
 
-    // 模拟不同数据格式
-    const dataFormats = {
-      v1: (page) => ({
-        data: {
-          list: Array.from({ length: 10 }, (_, i) => ({
-            id: page * 100 + i,
-            content: `动态内容v1-${page}-${i}`,
-            media: {
-              type: Math.random() > 0.5 ? 'image' : 'video',
-              url: Math.random() > 0.5 ?
-                `https://picsum.photos/300/${400 + Math.floor(Math.random() * 100)}` :
-                'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
-            }
-          }))
+    // 读取 URL 参数
+    const params = new URLSearchParams(location.search);
+    const dataType = params.get('dataType') || 'simple';
+
+    // 模拟 API
+    function fetchData(page) {
+      return new Promise(resolve => {
+        setTimeout(() => {
+          let raw;
+          if (dataType === 'nested') {
+            raw = { items: generateItems(page) };
+            resolve(raw.items);
+          } else {
+            raw = generateItems(page);
+            resolve(raw);
+          }
+        }, 500);
+      });
+    }
+
+    function generateItems(page) {
+      const list = [];
+      for (let i = 1; i <= 10; i++) {
+        const id = (page - 1) * 10 + i;
+        const type = (id % 3 === 0) ? 'video' : 'image';
+        list.push({
+          id,
+          title: `这是第 ${id} 条动态`,
+          media: type === 'video'
+            ? { type: 'video', url: 'https://www.w3schools.com/html/mov_bbb.mp4' }
+            : { type: 'image', url: `https://picsum.photos/300/200?random=${id}` }
+        });
+      }
+      return list;
+    }
+
+    function render(items, reset = false) {
+      if (reset) container.innerHTML = '';
+      items.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'item';
+        let mediaHTML = '';
+        if (item.media.type === 'video') {
+          mediaHTML = `<video controls src="${item.media.url}"></video>`;
+        } else {
+          mediaHTML = `<img src="${item.media.url}" alt="">`;
         }
-      }),
-
-      v2: (page) => ({
-        items: Array.from({ length: 10 }, (_, i) => ({
-          post_id: `${page}_${i}`,
-          description: `动态描述v2-${page}-${i}`,
-          attachments: [{
-            media_type: page % 2 === 0 ? 'video' : 'image',
-            resource: page % 2 === 0 ?
-              'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' :
-              `https://picsum.photos/300/${300 + Math.floor(Math.random() * 200)}`
-          }]
-        }))
-      })
-    };
-
-    async function fetchData(page) {
-      const mockData = dataFormats[dataType](page);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 模拟延迟
-      return dataType === 'v1' ? mockData.data.list : mockData.items;
+        el.innerHTML = mediaHTML + `<div class="title">${item.title}</div>`;
+        container.appendChild(el);
+      });
     }
 
-    function createMediaElement(item) {
-      const isV1 = dataType === 'v1';
-      const mediaType = isV1 ? item.media.type : item.attachments[0].media_type;
-      const mediaUrl = isV1 ? item.media.url : item.attachments[0].resource;
-
-      if (mediaType === 'video') {
-        const video = document.createElement('video');
-        video.className = 'media video';
-        video.controls = true;
-        video.muted = true;
-        video.innerHTML = `<source src="${mediaUrl}" type="video/mp4">`;
-        return video;
-      }
-
-      const img = new Image();
-      img.className = 'media';
-      img.src = mediaUrl;
-      return img;
+    // 加载数据
+    async function loadMore(reset = false) {
+      if (loading) return;
+      loading = true;
+      loadingEl.style.display = 'block';
+      const items = await fetchData(page);
+      render(items, reset);
+      page += 1;
+      loading = false;
+      loadingEl.style.display = 'none';
     }
 
-    function renderItem(itemData) {
-      const card = document.createElement('div');
-      card.className = 'card';
-
-      const title = document.createElement('div');
-      title.className = 'title';
-      title.textContent = dataType === 'v1' ? itemData.content : itemData.description;
-
-      card.appendChild(createMediaElement(itemData));
-      card.appendChild(title);
-      return card;
-    }
-
-    async function loadMore() {
-      if (isLoading) return;
-      isLoading = true;
-      document.getElementById('loading').style.display = 'block';
-
-      try {
-        const data = await fetchData(currentPage);
-        const fragment = document.createDocumentFragment();
-        data.forEach(item => fragment.appendChild(renderItem(item)));
-        document.getElementById('container').appendChild(fragment);
-        currentPage++;
-      } finally {
-        isLoading = false;
-        document.getElementById('loading').style.display = 'none';
-      }
-    }
-
-    // 滚动监听
+    // 滚动到底部加载
     window.addEventListener('scroll', () => {
-      const { scrollTop, clientHeight, scrollHeight } = document.documentElement;
-      if (scrollTop + clientHeight >= scrollHeight - 100) {
+      const scrollPos = window.scrollY + window.innerHeight;
+      if (scrollPos > document.body.scrollHeight - 100) {
         loadMore();
       }
     });
 
     // 下拉刷新
-    let touchStartY = 0;
     window.addEventListener('touchstart', e => {
-      touchStartY = e.touches[0].clientY;
+      if (window.scrollY === 0) {
+        startY = e.touches[0].clientY;
+        pulled = true;
+      }
     });
-
-    window.addEventListener('touchmove', async e => {
-      if (window.scrollY > 0) return;
-
-      const touchY = e.touches[0].clientY;
-      if (touchY - touchStartY > 100) {
-        currentPage = 1;
-        document.getElementById('container').innerHTML = '';
-        await loadMore();
+    window.addEventListener('touchmove', e => {
+      if (!pulled) return;
+      const diff = e.touches[0].clientY - startY;
+      if (diff > 80) {
+        pulled = false;
+        page = 1;
+        loadMore(true);
       }
     });
 
-    // 初始加载
+    // 初始化
     loadMore();
   </script>
 </body>
