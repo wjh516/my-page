@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>233乐园-发现</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .container {
+      padding: 8px;
+      column-count: 2;
+      column-gap: 8px;
+    }
+
+    .card {
+      break-inside: avoid;
+      margin-bottom: 8px;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .media {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+    }
+
+    .video {
+      aspect-ratio: 9/16;
+      background: #000;
+    }
+
+    .title {
+      padding: 8px;
+      font-size: 14px;
+      color: #333;
+      line-height: 1.4;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 15px;
+      color: #999;
+    }
+
+    /* 新增下拉刷新样式 */
+    .refresh-container {
+      position: fixed;
+      top: -50px;
+      left: 0;
+      right: 0;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.3s ease;
+    }
+
+    .refresh-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #666;
+    }
+
+    .refresh-icon {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #999;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: rotate 1s linear infinite;
+      animation-play-state: paused;
+    }
+
+    @keyframes rotate {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading .refresh-icon {
+      animation-play-state: running;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 新增下拉刷新容器 -->
+  <div class="refresh-container" id="refreshContainer">
+    <div class="refresh-content">
+      <div class="refresh-icon"></div>
+      <span>松开刷新</span>
+    </div>
+  </div>
+  <div class="container" id="container"></div>
+  <div class="loading" id="loading">加载中...</div>
+
+  <script>
+    // 修改后的触摸事件处理
+    let isRefreshing = false;
+    let pullStartY = null;
+
+    window.addEventListener('touchstart', e => {
+      if (window.scrollY === 0) {
+        pullStartY = e.touches[0].pageY;
+      }
+    });
+
+    window.addEventListener('touchmove', e => {
+      if (!pullStartY) return;
+
+      const touch = e.touches[0];
+      const pullDistance = touch.pageY - pullStartY;
+
+      if (pullDistance > 0 && window.scrollY === 0) {
+        e.preventDefault();
+        const pullRatio = Math.min(pullDistance / 150, 1);
+        refreshContainer.style.transform = `translateY(${Math.min(pullDistance, 150)}px)`;
+        refreshContainer.style.opacity = pullRatio;
+      }
+    });
+
+    window.addEventListener('touchend', async e => {
+      if (!pullStartY) return;
+
+      const pullDistance = e.changedTouches[0].pageY - pullStartY;
+      pullStartY = null;
+
+      if (pullDistance > 100 && window.scrollY === 0) {
+        isRefreshing = true;
+        refreshContainer.classList.add('loading');
+
+        // 执行刷新
+        currentPage = 1;
+        container.innerHTML = '';
+        await loadMore();
+
+        // 重置动画
+        setTimeout(() => {
+          refreshContainer.style.transform = 'translateY(-50px)';
+          refreshContainer.style.opacity = 0;
+          refreshContainer.classList.remove('loading');
+          isRefreshing = false;
+        }, 500);
+      } else {
+        refreshContainer.style.transform = 'translateY(-50px)';
+        refreshContainer.style.opacity = 0;
+      }
+    });
+
+    // 修改加载函数
+    async function loadMore() {
+      if (isLoading || isRefreshing) return;
+      isLoading = true;
+      loading.style.display = 'block';
+
+      try {
+        const data = await fetchData(currentPage);
+        const fragment = document.createDocumentFragment();
+        data.forEach(item => fragment.appendChild(renderItem(item)));
+        container.appendChild(fragment);
+        currentPage++;
+      } finally {
+        isLoading = false;
+        loading.style.display = 'none';
+      }
+    }
+    // URL参数解析
+    const urlParams = new URLSearchParams(location.search);
+    const dataType = urlParams.get('format') || 'v1';
+
+    let currentPage = 1;
+    let isLoading = false;
+
+    // 模拟不同数据格式
+    const dataFormats = {
+      v1: (page) => ({
+        data: {
+          list: Array.from({ length: 10 }, (_, i) => ({
+            id: page * 100 + i,
+            content: `动态内容v1-${page}-${i}`,
+            media: {
+              type: Math.random() > 0.5 ? 'image' : 'video',
+              url: Math.random() > 0.5 ?
+                `https://picsum.photos/300/${400 + Math.floor(Math.random() * 100)}` :
+                'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+            }
+          }))
+        }
+      }),
+
+      v2: (page) => ({
+        items: Array.from({ length: 10 }, (_, i) => ({
+          post_id: `${page}_${i}`,
+          description: `动态描述v2-${page}-${i}`,
+          attachments: [{
+            media_type: page % 2 === 0 ? 'video' : 'image',
+            resource: page % 2 === 0 ?
+              'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' :
+              `https://picsum.photos/300/${300 + Math.floor(Math.random() * 200)}`
+          }]
+        }))
+      })
+    };
+
+    async function fetchData(page) {
+      const mockData = dataFormats[dataType](page);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 模拟延迟
+      return dataType === 'v1' ? mockData.data.list : mockData.items;
+    }
+
+    function createMediaElement(item) {
+      const isV1 = dataType === 'v1';
+      const mediaType = isV1 ? item.media.type : item.attachments[0].media_type;
+      const mediaUrl = isV1 ? item.media.url : item.attachments[0].resource;
+
+      if (mediaType === 'video') {
+        const video = document.createElement('video');
+        video.className = 'media video';
+        video.controls = true;
+        video.muted = true;
+        video.innerHTML = `<source src="${mediaUrl}" type="video/mp4">`;
+        return video;
+      }
+
+      const img = new Image();
+      img.className = 'media';
+      img.src = mediaUrl;
+      return img;
+    }
+
+    function renderItem(itemData) {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const title = document.createElement('div');
+      title.className = 'title';
+      title.textContent = dataType === 'v1' ? itemData.content : itemData.description;
+
+      card.appendChild(createMediaElement(itemData));
+      card.appendChild(title);
+      return card;
+    }
+
+    async function loadMore() {
+      if (isLoading) return;
+      isLoading = true;
+      document.getElementById('loading').style.display = 'block';
+
+      try {
+        const data = await fetchData(currentPage);
+        const fragment = document.createDocumentFragment();
+        data.forEach(item => fragment.appendChild(renderItem(item)));
+        document.getElementById('container').appendChild(fragment);
+        currentPage++;
+      } finally {
+        isLoading = false;
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    // 滚动监听
+    window.addEventListener('scroll', () => {
+      const { scrollTop, clientHeight, scrollHeight } = document.documentElement;
+      if (scrollTop + clientHeight >= scrollHeight - 100) {
+        loadMore();
+      }
+    });
+
+    // 下拉刷新
+    let touchStartY = 0;
+    window.addEventListener('touchstart', e => {
+      touchStartY = e.touches[0].clientY;
+    });
+
+    window.addEventListener('touchmove', async e => {
+      if (window.scrollY > 0) return;
+
+      const touchY = e.touches[0].clientY;
+      if (touchY - touchStartY > 100) {
+        currentPage = 1;
+        document.getElementById('container').innerHTML = '';
+        await loadMore();
+      }
+    });
+
+    // 初始加载
+    loadMore();
+  </script>
+</body>
+
+</html>
