@@ -51,130 +51,14 @@
       padding: 15px;
       color: #999;
     }
-
-    /* 新增下拉刷新样式 */
-    .refresh-container {
-      position: fixed;
-      top: -50px;
-      left: 0;
-      right: 0;
-      height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: transform 0.3s ease;
-    }
-
-    .refresh-content {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #666;
-    }
-
-    .refresh-icon {
-      width: 24px;
-      height: 24px;
-      border: 2px solid #999;
-      border-radius: 50%;
-      border-top-color: transparent;
-      animation: rotate 1s linear infinite;
-      animation-play-state: paused;
-    }
-
-    @keyframes rotate {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .loading .refresh-icon {
-      animation-play-state: running;
-    }
   </style>
 </head>
 
 <body>
-  <!-- 新增下拉刷新容器 -->
-  <div class="refresh-container" id="refreshContainer">
-    <div class="refresh-content">
-      <div class="refresh-icon"></div>
-      <span>松开刷新</span>
-    </div>
-  </div>
   <div class="container" id="container"></div>
   <div class="loading" id="loading">加载中...</div>
 
   <script>
-    // 修改后的触摸事件处理
-    let isRefreshing = false;
-    let pullStartY = null;
-
-    window.addEventListener('touchstart', e => {
-      if (window.scrollY === 0) {
-        pullStartY = e.touches[0].pageY;
-      }
-    });
-
-    window.addEventListener('touchmove', e => {
-      if (!pullStartY) return;
-
-      const touch = e.touches[0];
-      const pullDistance = touch.pageY - pullStartY;
-
-      if (pullDistance > 0 && window.scrollY === 0) {
-        e.preventDefault();
-        const pullRatio = Math.min(pullDistance / 150, 1);
-        refreshContainer.style.transform = `translateY(${Math.min(pullDistance, 150)}px)`;
-        refreshContainer.style.opacity = pullRatio;
-      }
-    });
-
-    window.addEventListener('touchend', async e => {
-      if (!pullStartY) return;
-
-      const pullDistance = e.changedTouches[0].pageY - pullStartY;
-      pullStartY = null;
-
-      if (pullDistance > 100 && window.scrollY === 0) {
-        isRefreshing = true;
-        refreshContainer.classList.add('loading');
-
-        // 执行刷新
-        currentPage = 1;
-        container.innerHTML = '';
-        await loadMore();
-
-        // 重置动画
-        setTimeout(() => {
-          refreshContainer.style.transform = 'translateY(-50px)';
-          refreshContainer.style.opacity = 0;
-          refreshContainer.classList.remove('loading');
-          isRefreshing = false;
-        }, 500);
-      } else {
-        refreshContainer.style.transform = 'translateY(-50px)';
-        refreshContainer.style.opacity = 0;
-      }
-    });
-
-    // 修改加载函数
-    async function loadMore() {
-      if (isLoading || isRefreshing) return;
-      isLoading = true;
-      loading.style.display = 'block';
-
-      try {
-        const data = await fetchData(currentPage);
-        const fragment = document.createDocumentFragment();
-        data.forEach(item => fragment.appendChild(renderItem(item)));
-        container.appendChild(fragment);
-        currentPage++;
-      } finally {
-        isLoading = false;
-        loading.style.display = 'none';
-      }
-    }
     // URL参数解析
     const urlParams = new URLSearchParams(location.search);
     const dataType = urlParams.get('format') || 'v1';
