@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>233乐园社区发现页</title>
   <style>
     /* 重置 & 基础 */
@@ -140,6 +140,12 @@
       background: #fafafa;
     }
 
+    .author {
+      display: flex;
+      align-items: center;
+    }
+
+    /* 缩小头像 */
     .footer .author img {
       width: 16px;
       height: 16px;
@@ -197,23 +203,19 @@
   <script>
     let page = 1, loading = false, pulling = false, startY = 0, refreshCount = 0;
     const wrapper = document.getElementById('wrapper'), refreshEl = document.getElementById('refresh');
-    const col1 = document.getElementById('col1'), col2 = document.getElementById('col2');
-    const loadingEl = document.getElementById('loading');
+    const col1 = document.getElementById('col1'), col2 = document.getElementById('col2'); const loadingEl = document.getElementById('loading');
     const params = new URLSearchParams(location.search), dataType = params.get('dataType') || 'simple';
-
     function fetchData(page) {
       return new Promise(resolve => {
         setTimeout(() => {
           const base = refreshCount * 100;
-          const raw = dataType === 'nested' ? { items: generateItems(page, base) } : generateItems(page, base);
+          let raw = (dataType === 'nested') ? { items: generateItems(page, base) } : generateItems(page, base);
           resolve(dataType === 'nested' ? raw.items : raw);
         }, 500);
       });
     }
-
     function generateItems(page, base) {
-      const list = [];
-      const names = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank'];
+      const list = [], names = ['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank'];
       for (let i = 1; i <= 10; i++) {
         const id = base + (page - 1) * 10 + i;
         const mod = id % 3;
@@ -225,64 +227,38 @@
       }
       return list;
     }
-
     function render(items, reset = false) {
       if (reset) { col1.innerHTML = ''; col2.innerHTML = ''; }
-      let firstVideoPlayed = false;
       items.forEach((item, idx) => {
         const el = document.createElement('div');
         el.className = 'item' + (item.media.type === 'text' ? ' text-only' : '');
         let inner = '';
-        if (item.media.type === 'video') {
-          let attrs = 'controls';
-          if (!firstVideoPlayed) {
-            attrs = 'autoplay muted loop playsinline';
-            firstVideoPlayed = true;
-          }
-          inner += `<video ${attrs} src="${item.media.url}"></video>`;
-        } else if (item.media.type === 'image') {
-          inner += `<img src="${item.media.url}" alt="">`;
-        } else {
-          inner += `<div class="text-content">${item.media.text}</div>`;
-        }
+        if (item.media.type === 'video') inner += `<video controls src="${item.media.url}"></video>`;
+        else if (item.media.type === 'image') inner += `<img src="${item.media.url}" alt="">`;
+        else inner += `<div class="text-content">${item.media.text}</div>`;
         inner += `<div class="title">${item.title}</div>`;
         inner += `<div class="footer">` +
           `<div class="author"><img src="${item.author.avatar}" alt=""><span>${item.author.name}</span></div>` +
-          `<div class="like-btn" data-liked="false"><span class="heart">♡</span><span>${item.likes}</span></div>` +
-          `</div>`;
+          `<div class="like-btn" data-liked="false"><span class="heart">♡</span><span>${item.likes}</span></div></div>`;
         el.innerHTML = inner;
         el.querySelector('.like-btn').addEventListener('click', function () {
-          const liked = this.getAttribute('data-liked') === 'true';
-          const heart = this.querySelector('.heart');
-          const span = this.querySelector('span:last-child');
-          let count = parseInt(span.textContent, 10);
+          const liked = this.getAttribute('data-liked') === 'true'; const heart = this.querySelector('.heart'); const span = this.querySelector('span:last-child'); let count = parseInt(span.textContent, 10);
           if (liked) { count--; heart.textContent = '♡'; }
           else { count++; heart.textContent = '♥'; }
-          this.setAttribute('data-liked', (!liked).toString());
-          span.textContent = count;
+          this.setAttribute('data-liked', (!liked).toString()); span.textContent = count;
         });
         (idx % 2 === 0 ? col1 : col2).appendChild(el);
       });
     }
-
     async function loadMore(reset = false) {
-      if (loading) return;
-      loading = true;
-      loadingEl.style.display = 'block';
-      if (reset) page = 1;
-      const items = await fetchData(page);
-      render(items, reset);
-      page++;
-      loading = false;
-      loadingEl.style.display = 'none';
-      if (reset) setTimeout(() => { refreshEl.style.top = '-50px'; pulling = false; }, 300);
+      if (loading) return; loading = true; loadingEl.style.display = 'block';
+      const items = await fetchData(page); render(items, reset); page++; loading = false; loadingEl.style.display = 'none';
+      if (pulling) setTimeout(() => { refreshEl.style.top = '-50px'; pulling = false; }, 300);
     }
-
     wrapper.addEventListener('scroll', () => { const { scrollTop, scrollHeight, clientHeight } = wrapper; if (scrollTop + clientHeight > scrollHeight - 100) loadMore(); });
     wrapper.addEventListener('touchstart', e => { if (wrapper.scrollTop === 0) startY = e.touches[0].clientY; });
     wrapper.addEventListener('touchmove', e => { const diff = e.touches[0].clientY - startY; if (diff > 0 && wrapper.scrollTop === 0) { e.preventDefault(); refreshEl.style.top = Math.min(diff - 50, 20) + 'px'; } });
-    wrapper.addEventListener('touchend', e => { const diff = e.changedTouches[0].clientY - startY; if (diff > 80 && wrapper.scrollTop === 0) { refreshCount++; pulling = true; refreshEl.style.top = '10px'; loadMore(true); } else { refreshEl.style.top = '-50px'; } });
-
+    wrapper.addEventListener('touchend', e => { const diff = e.changedTouches[0].clientY - startY; if (diff > 80 && wrapper.scrollTop === 0) { refreshCount++; pulling = true; refreshEl.style.top = '10px'; page = 1; loadMore(true); } else refreshEl.style.top = '-50px'; });
     loadMore();
   </script>
 </body>
